@@ -107,14 +107,21 @@ Most real systems are streaming systems pretending to be batch.
 
 ## 6) Demos (run & understand these before anything else)
 
+
 ### Demo 1: Threads help I/O wait
-`labs/core_models/01_io_wait_threads_vs_serial.py`
+`labs/core-models/01_io_wait_threads_vs_serial.py`
 
 ### Demo 2: Threads don’t speed up CPU-bound Python (GIL)
-`labs/core_models/02_cpu_bound_gil_threads_vs_processes.py`
+`labs/core-models/02_cpu_bound_gil_threads_vs_processes.py`
 
 ### Demo 3: Blocking kills async
-`labs/core_models/03_async_event_loop_blocking_vs_await.py`
+`labs/core-models/03_async_event_loop_blocking_vs_await.py`
+
+### Demo 4: Backpressure (bounded queue vs unbounded queue)
+`labs/core-models/04_backpressure_queue_bounded_vs_unbounded.py`
+
+### Demo 5: Diminishing returns (thread overhead)
+`labs/core-models/05_thread_overhead_diminishing_returns.py`
 
 ---
 
@@ -138,11 +145,16 @@ flowchart LR
 OS : Linux, CPython 3.12
 Cores : 32 cores
 
-| Demo | Serial | Threads | Processes | Notes |
-|---|---:|---:|---:|---|
-| I/O wait (50×0.2s) | 10.008s | 2.007s (5) / 0.607s (20) | — | Threads overlap wait |
-| CPU-bound (8 tasks) | 7.883s | 11.545s | 1.212s | GIL blocks threads; procs win |
-| Async (50×0.2s) | 10.011s (blocked loop) | — | — | `await` yields; blocking kills |
+| Demo | Key result | Why it matters |
+|---|---|---|
+| 01 I/O wait (50×0.2s) | Serial 10.008s vs Threads(20) 0.607s | Threads overlap I/O wait |
+| 02 CPU-bound (8 tasks) | Threads 11.545s vs Processes 1.212s | GIL blocks CPU scaling with threads |
+| 03 Async | `await` version 0.201s vs blocking 10.011s | Blocking the loop destroys async concurrency |
+| 04 Backpressure | Unbounded backlog 3600 vs bounded backlog 200 | Bounded queues prevent memory/latency blowups |
+| 05 Thread overhead | Speedup continues up to 64 threads here | Gains plateau/degrade depends on workload + OS; don’t assume linear scaling |
+
+
+> Results vary by machine load, CPU governor, Python version, and workload characteristics. The shape/trend is what matters.
 
 ---
 

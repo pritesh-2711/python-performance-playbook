@@ -1,0 +1,4 @@
+asyncio==4.0.0
+nest-asyncio==1.6.0 
+regex===2024.6.15
+requests==2.32.5
