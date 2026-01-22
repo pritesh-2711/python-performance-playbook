@@ -43,3 +43,6 @@ pip-wheel-metadata/
 profile_default/
 ipdb/
 .pyre/
+_data/
+*.txt
+*_data

@@ -16,28 +16,47 @@ This repo demonstrates all of these using **real HTTP + real Postgres**.
 
 ---
 
-## Lab 01: Real HTTP fan-out (FastAPI binary search service)
+## Lab 01: Real HTTP fan-out (FastAPI, cached vs overloaded)
 
-### the results (200 req, repeat=3)
-- Serial: **~7.96 RPS**, p50 ~125ms
-- Threads(2..32): **RPS collapsed** and tail latency exploded (p99 up to seconds)
+This lab benchmarks a real HTTP service running locally via FastAPI.  
+The endpoint performs a binary search over a large sorted array and supports two modes:
 
-### Interpretation (tell-it-like-it-is)
-This is a **downstream bottleneck + queueing** story.
+- **mem**: data is loaded once at startup and served from memory (realistic, production-style)
+- **disk**: data is reloaded and parsed on every request (intentionally pathological)
 
-The FastAPI endpoint does a heavy server-side workload per request:
-- reads a large file (`sorted_ints.txt`) every request (disk I/O)
-- parses it into Python ints (CPU + allocations)
-- then binary-searches
+### Results (cached / `mode=mem`)
+On a warmed server and client, the cached path shows a clear “threads help, then hurt” curve:
 
-When the client increases concurrency, the server can’t actually process requests in parallel fast enough.
-Requests queue up, latency grows, and the benchmark computes total time as the sum of individual request latencies — so throughput collapses.
+- **Serial**: ~590 RPS
+- **Threads(4)**: ~1325 RPS (**~2.2× speedup**, best point)
+- **Threads(8+)**: throughput drops and p95/p99 latency grows rapidly
 
-So this lab is still valuable, but it demonstrates the real rule:
+This is the expected behavior of a healthy I/O-bound HTTP workload:
+threads overlap request/response waits and improve throughput **until**
+CPU contention, kernel scheduling, socket contention, and server-side limits dominate.
 
-> Client-side threads do not create throughput if the server is the bottleneck. They can make it worse by increasing queueing and tail latency.
+### Why throughput drops after the knee
+Adding threads beyond the service’s capacity does not create more work being done.
+Instead it increases:
+- request queueing inside the server
+- lock and scheduling contention
+- tail latency (p95/p99)
 
-This is exactly what production load testing looks like: you don’t judge threads by “more workers is faster”; you find the system’s knee.
+The result is lower effective throughput even though more client threads are active.
+
+### Key takeaway
+> Threads improve HTTP throughput **only up to the downstream system’s capacity**.
+Beyond that point, more concurrency increases latency and reduces throughput.
+
+This is why real systems cap concurrency and tune for the knee, not for maximum threads.
+
+### The pathological case (`mode=disk`)
+When the server reloads and reparses data on every request, even low concurrency
+causes queueing and tail latency explosions. In this mode, increasing client threads
+makes performance dramatically worse.
+
+This demonstrates an important rule:
+> Client-side threading cannot compensate for inefficient server-side work.
 
 ---
 
